@@ -7,10 +7,11 @@ import {
   useMemo,
 } from 'react';
 import { EventBuilder } from '../builders';
-import { loadTelegramWebAppData, webViewHandler } from '../telegram/telegram';
 import { TonConnectStorageData } from '../models/tonconnect-storage-data';
 import { EventType } from '../enum/event-type.enum';
 import { getConfig } from '../config';
+import { Telegram } from '../telegram';
+import { getTelegramWebAppData } from '../telegram/telegram';
 
 export type TwaAnalyticsProviderOptions = {
   projectId: string;
@@ -20,6 +21,8 @@ export type TwaAnalyticsProviderOptions = {
 
 export type TwaAnalyticsProviderProps = {
   children: ReactNode;
+  webApp: Telegram.WebApp;
+  webView: Telegram.WebView;
 } & TwaAnalyticsProviderOptions;
 
 export const TwaAnalyticsProviderContext = createContext<EventBuilder | null>(
@@ -55,13 +58,15 @@ function getElementProperties(element: HTMLElement): Record<string, string> {
  */
 const TwaAnalyticsProvider: FunctionComponent<TwaAnalyticsProviderProps> = ({
   children,
+  webApp,
+  webView,
   ...options
 }) => {
   if (!options.projectId) {
     throw new Error('TWA Analytics Provider: Missing projectId');
   }
 
-  const telegramWebAppData = loadTelegramWebAppData();
+  const telegramWebAppData = getTelegramWebAppData(webApp);
 
   const eventBuilder = useMemo(() => {
     return new EventBuilder(
@@ -73,24 +78,21 @@ const TwaAnalyticsProvider: FunctionComponent<TwaAnalyticsProviderProps> = ({
   }, []);
 
   useEffect(() => {
-    webViewHandler?.onEvent('main_button_pressed', (event: string) => {
+    webView.onEvent('main_button_pressed', (event: string) => {
       eventBuilder.track(EventType.MainButtonPressed, {});
     });
 
-    webViewHandler?.onEvent('settings_button_pressed', (event: string) => {
+    webView.onEvent('settings_button_pressed', (event: string) => {
       eventBuilder.track(EventType.SettingsButtonPressed, {});
     });
 
-    webViewHandler?.onEvent(
-      'invoice_closed',
-      (event: string, data?: object) => {
-        eventBuilder.track(EventType.InvoiceClosed, {
-          ...data,
-        });
-      },
-    );
+    webView.onEvent('invoice_closed', (event: string, data?: object) => {
+      eventBuilder.track(EventType.InvoiceClosed, {
+        ...data,
+      });
+    });
 
-    webViewHandler?.onEvent(
+    webView.onEvent(
       'clipboard_text_received',
       (event: string, data?: object) => {
         eventBuilder.track(EventType.ClipboardTextReceived, {
@@ -99,42 +101,36 @@ const TwaAnalyticsProvider: FunctionComponent<TwaAnalyticsProviderProps> = ({
       },
     );
 
-    webViewHandler?.onEvent('popup_closed', (event: string, data?: object) => {
+    webView.onEvent('popup_closed', (event: string, data?: object) => {
       eventBuilder.track(EventType.PopupClosed, {});
     });
 
-    webViewHandler?.onEvent(
+    webView.onEvent(
       'write_access_requested',
       (event: string, data?: object) => {
         eventBuilder.track(EventType.WriteAccessRequested, {});
       },
     );
 
-    webViewHandler?.onEvent(
-      'qr_text_received',
-      (event: string, data?: object) => {
-        eventBuilder.track(EventType.QRTextReceived, {
-          ...data,
-        });
-      },
-    );
+    webView.onEvent('qr_text_received', (event: string, data?: object) => {
+      eventBuilder.track(EventType.QRTextReceived, {
+        ...data,
+      });
+    });
 
-    webViewHandler?.onEvent(
-      'phone_requested',
-      (event: string, data?: object) => {
-        eventBuilder.track(EventType.PhoneRequested, {
-          ...data,
-        });
-      },
-    );
-  }, []);
+    webView.onEvent('phone_requested', (event: string, data?: object) => {
+      eventBuilder.track(EventType.PhoneRequested, {
+        ...data,
+      });
+    });
+  }, [webView, eventBuilder]);
 
   useEffect(() => {
     const locationPath = location.pathname;
     eventBuilder.track(`${EventType.PageView} ${locationPath}`, {
       path: locationPath,
     });
-  }, []);
+  }, [eventBuilder]);
 
   useEffect(() => {
     let lastAddress: null | string = null;

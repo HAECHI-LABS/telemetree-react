@@ -1,5 +1,6 @@
+'use client';
+
 import { Logger, LogLevel } from './utils/logger';
-import { getConfig, setConfig, type TelemetreeConfig } from './config';
 
 Logger.setLevel(
   import.meta.env.MODE === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
